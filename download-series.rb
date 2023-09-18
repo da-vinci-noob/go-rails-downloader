@@ -40,11 +40,16 @@ def download_files
   rss = fetch_rss_file
   series_title, episodes = fetch_series_title
   episodes_with_urls = add_url_to_episodes(rss, episodes)
-
   folder_name = "series/#{series_title}"
+  existing_files = Dir.glob("#{folder_name}/*.mp4").map { |f| f.split('/').last.split('.').first }
   FileUtils.mkdir_p folder_name
+
   episodes_with_urls.each_with_index do |ep, index|
     title = "#{ep[:id]}-#{ep[:title].downcase.tr('^A-Za-z0-9', '_')}"
+    if existing_files.include? title
+      puts "\n'#{ep[:title]}' Already Downloaded as '#{title}'\n\n"
+      next
+    end
     filename = File.join(folder_name, title)
     puts "Downloading '#{ep[:title]}'--#{ep[:size]}mb (#{index + 1}/#{episodes_with_urls.size})"
     `curl --progress-bar #{ep[:url]} -o "#{filename}.tmp"; mv "#{filename}.tmp" "#{filename}.mp4"`
