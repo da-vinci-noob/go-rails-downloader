@@ -8,24 +8,24 @@ def get_user_data
   @email = gets.chomp
   puts 'Enter Password: '
   @pass = gets.chomp
-  puts 'Enter Series URL. Eg: https://gorails.com/series/testing-ruby-on-rails: '
-  @series_url = gets.chomp
+  puts 'Press (y) to download all series else press any other key'
+  @all_series = gets.chomp
 end
 
 def fetch_rss_file
   url = URI.open('https://gorails.com/episodes/pro.rss', http_basic_authentication: [@email, @pass]).read
-  RSS::Parser.parse(url, false)
+  @rss = RSS::Parser.parse(url, false)
 end
 
 def fetch_series_title
-  doc = Nokogiri::HTML(URI.open(@series_url))
+  doc = Nokogiri::HTML(URI.parse(@series_url).open)
   [doc.css('h1').text, doc.css('div[id^="episode_"]')]
 end
 
-def add_url_to_episodes(rss, episodes)
+def add_url_to_episodes(episodes)
   episodes.map do |ep|
     data = { id: ep['id'].delete('episode_'), title: ep.css('h4').first.text.strip }
-    rss.items.each do |item|
+    @rss.items.each do |item|
       next unless data[:title] == item.title.strip
 
       data[:url] = item.enclosure.url
@@ -36,10 +36,9 @@ def add_url_to_episodes(rss, episodes)
   end
 end
 
-def download_files
-  rss = fetch_rss_file
+def download_individual_series
   series_title, episodes = fetch_series_title
-  episodes_with_urls = add_url_to_episodes(rss, episodes)
+  episodes_with_urls = add_url_to_episodes(episodes)
   folder_name = "series/#{series_title}"
   existing_files = Dir.glob("#{folder_name}/*.mp4").map { |f| f.split('/').last.split('.').first }
   FileUtils.mkdir_p folder_name
@@ -56,5 +55,27 @@ def download_files
   end
 end
 
+def fetch_all_series_title
+  url = 'https://gorails.com/series'
+  doc = Nokogiri::HTML(URI.parse(url).open)
+  series_list = doc.css(
+    'a[class="flex h-full border border-gray-100 rounded-md shadow bg-white"]',
+    'a[class="hover:underline"]'
+  ).map { |node| node['href'] }
+
+  series_list.each do |series|
+    @series_url = "https://gorails.com#{series}"
+    download_individual_series
+  end
+end
+
 get_user_data
-download_files
+fetch_rss_file
+
+if @all_series&.downcase == 'y'
+  fetch_all_series_title
+else
+  puts 'Enter Series URL. Eg: https://gorails.com/series/testing-ruby-on-rails: '
+  @series_url = gets.chomp
+  download_individual_series
+end
