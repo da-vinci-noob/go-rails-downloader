@@ -19,7 +19,7 @@ end
 
 def fetch_series_title
   doc = Nokogiri::HTML(URI.parse(@series_url).open)
-  [doc.css('h1').text, doc.css('div[id^="episode_"]')]
+  [doc.css('h1').text.strip, doc.css('div[id^="episode_"]')]
 end
 
 def add_url_to_episodes(episodes)
@@ -30,6 +30,7 @@ def add_url_to_episodes(episodes)
 
       data[:url] = item.enclosure.url
       data[:size] = item.enclosure.length / (1024 * 1024)
+      data[:pubDate] = item.pubDate
       break
     end
     data
@@ -44,13 +45,13 @@ def download_individual_series
   FileUtils.mkdir_p folder_name
 
   episodes_with_urls.each_with_index do |ep, index|
-    title = "#{ep[:id]}-#{ep[:title].downcase.tr('^A-Za-z0-9', '_')}"
+    title = "#{ep[:id]}-#{ep[:title].tr('^A-Za-z0-9 ', '_')}-#{ep[:pubDate].strftime('%d %b %Y')}"
     if existing_files.include? title
       puts "\n'#{ep[:title]}' Already Downloaded as '#{title}'\n\n"
       next
     end
     filename = File.join(folder_name, title)
-    puts "Downloading '#{ep[:title]}'--#{ep[:size]}mb (#{index + 1}/#{episodes_with_urls.size})"
+    puts "Downloading '#{ep[:title]}' --#{ep[:size]}mb (#{index + 1}/#{episodes_with_urls.size}) in #{folder_name}"
     `curl --progress-bar #{ep[:url]} -o "#{filename}.tmp"; mv "#{filename}.tmp" "#{filename}.mp4"`
   end
 end
@@ -58,10 +59,7 @@ end
 def fetch_all_series_title
   url = 'https://gorails.com/series'
   doc = Nokogiri::HTML(URI.parse(url).open)
-  series_list = doc.css(
-    'a[class="flex h-full border border-gray-100 rounded-md shadow bg-white"]',
-    'a[class="hover:underline"]'
-  ).map { |node| node['href'] }
+  series_list = doc.css('a.btn[href*="/series/"]').map { |node| node['href'] }
 
   series_list.each do |series|
     @series_url = "https://gorails.com#{series}"
