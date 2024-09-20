@@ -50,6 +50,8 @@ def download_individual_series
     title = "#{ep[:id]}-#{ep[:title].tr('^A-Za-z0-9 ', '_')}-#{ep[:pubDate].strftime('%d %b %Y')}.#{ep[:ext]}"
     if existing_files.include? title
       puts "'#{ep[:title].red}' Already Downloaded as '#{title.green}'\n\n"
+    elsif ep[:url].empty?
+      puts "No URL available for '#{title.blue}' in '#{folder_name.blue}\n\n".red
     else
       download_episode(ep[:url], title, index, episodes_with_urls.size, folder_name)
     end
