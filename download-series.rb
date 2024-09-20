@@ -1,7 +1,9 @@
 #!/usr/bin/ruby
 require 'rss'
 require 'nokogiri'
-require 'fileutils'
+require 'down'
+require 'down/net_http'
+require 'colorize'
 
 def get_user_data
   puts 'Enter Email: '
@@ -29,8 +31,8 @@ def add_url_to_episodes(episodes)
       next unless data[:title] == item.title.strip
 
       data[:url] = item.enclosure.url
-      data[:size] = item.enclosure.length / (1024 * 1024)
       data[:pubDate] = item.pubDate
+      data[:ext] = item.enclosure.type&.split('/')&.last || 'mp4'
       break
     end
     data
@@ -41,19 +43,40 @@ def download_individual_series
   series_title, episodes = fetch_series_title
   episodes_with_urls = add_url_to_episodes(episodes)
   folder_name = "series/#{series_title}"
-  existing_files = Dir.glob("#{folder_name}/*.mp4").map { |f| f.split('/').last.split('.').first }
+  existing_files = Dir.glob("#{folder_name}/*.mp4").map { |f| f.split('/').last }
   FileUtils.mkdir_p folder_name
 
   episodes_with_urls.each_with_index do |ep, index|
-    title = "#{ep[:id]}-#{ep[:title].tr('^A-Za-z0-9 ', '_')}-#{ep[:pubDate].strftime('%d %b %Y')}"
+    title = "#{ep[:id]}-#{ep[:title].tr('^A-Za-z0-9 ', '_')}-#{ep[:pubDate].strftime('%d %b %Y')}.#{ep[:ext]}"
     if existing_files.include? title
-      puts "\n'#{ep[:title]}' Already Downloaded as '#{title}'\n\n"
-      next
+      puts "'#{ep[:title].red}' Already Downloaded as '#{title.green}'\n\n"
+    else
+      download_episode(ep[:url], title, index, episodes_with_urls.size, folder_name)
     end
-    filename = File.join(folder_name, title)
-    puts "Downloading '#{ep[:title]}' --#{ep[:size]}mb (#{index + 1}/#{episodes_with_urls.size}) in #{folder_name}"
-    `curl --progress-bar #{ep[:url]} -o "#{filename}.tmp"; mv "#{filename}.tmp" "#{filename}.mp4"`
   end
+end
+
+def download_episode(url, title, index, episode_count, folder_name)
+  filename = File.join(folder_name, title)
+  Down.download(
+    url,
+    destination: filename,
+    content_length_proc: lambda { |content_length|
+      @total = content_length
+      puts "Downloading '#{title.green}' (#{(index + 1).to_s.magenta}/#{episode_count.to_s.magenta}) in #{folder_name.green}"
+      puts "Total size: #{content_length / 1000 / 1000} MB"
+    },
+    progress_proc: lambda { |progress|
+      if @total
+        percent = (progress.to_f / @total * 100).round(2)
+        print "\rDownloading: #{percent}% complete".red
+      else
+        print "\rDownloading: #{progress} bytes".red
+      end
+    }
+  )
+
+  puts "\nDownload complete: #{filename.green}\n\n"
 end
 
 def fetch_all_series_title
