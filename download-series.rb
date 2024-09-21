@@ -5,17 +5,13 @@ require 'down'
 require 'down/net_http'
 require 'colorize'
 
-def get_user_data
-  puts 'Enter Email: '
-  @email = gets.chomp
-  puts 'Enter Password: '
-  @pass = gets.chomp
+def download_all_series?
   puts 'Press (y) to download all series else press any other key'
   @all_series = gets.chomp
 end
 
 def fetch_rss_file
-  url = URI.open('https://gorails.com/episodes/pro.rss', http_basic_authentication: [@email, @pass]).read
+  url = URI.open('https://gorails.com/episodes/pro.rss', http_basic_authentication: [email, pass]).read
   @rss = RSS::Parser.parse(url, false)
 end
 
@@ -92,7 +88,38 @@ def fetch_all_series_title
   end
 end
 
-get_user_data
+def load_env
+  env_file = File.join(Dir.pwd, '.env')
+  return unless File.exist?(env_file)
+
+  File.open(env_file).each_line do |env|
+    key, value = env.split('=')
+    ENV[key.to_s] = value.strip
+  end
+end
+
+def email
+  @email ||=
+    if ENV['GO_RAILS_USER'].to_s.empty?
+      puts 'Enter Email: '
+      gets.chomp
+    else
+      ENV['GO_RAILS_USER']
+    end
+end
+
+def pass
+  @pass ||=
+    if ENV['GO_RAILS_PASS'].to_s.empty?
+      puts 'Enter Password: '
+      gets.chomp
+    else
+      ENV['GO_RAILS_PASS']
+    end
+end
+
+load_env
+download_all_series?
 fetch_rss_file
 
 if @all_series&.downcase == 'y'
