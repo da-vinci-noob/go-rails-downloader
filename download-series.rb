@@ -5,11 +5,6 @@ require 'down'
 require 'down/net_http'
 require 'colorize'
 
-def download_all_series?
-  puts 'Press (y) to download all series else press any other key'
-  @all_series = gets.chomp
-end
-
 def fetch_rss_file
   url = URI.open('https://gorails.com/episodes/pro.rss', http_basic_authentication: [email, pass]).read
   @rss = RSS::Parser.parse(url, false)
@@ -118,11 +113,15 @@ def pass
     end
 end
 
+def download_all_series?
+  puts 'Press (y) to download all series else press any other key'
+  gets.chomp
+end
+
 load_env
-download_all_series?
 fetch_rss_file
 
-if @all_series&.downcase == 'y'
+if download_all_series?&.downcase == 'y'
   fetch_all_series_title
 else
   puts 'Enter Series URL. Eg: https://gorails.com/series/testing-ruby-on-rails: '
