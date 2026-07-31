@@ -46,6 +46,12 @@ def download_individual_series
     else
       download_episode(ep[:url], title, index, episodes_with_urls.size, folder_name)
     end
+    rescue NoMethodError
+      if ep[:url].nil? || ep[:url].empty?
+        puts "Error: No URL found for episode '#{ep[:title].red}' in series '#{series_title.red}'\n\n".red
+      else
+        puts "Error: An unexpected error occurred while processing episode '#{ep[:title].red}' in series '#{series_title.red}'\n\n".red
+      end
   end
 end
 
